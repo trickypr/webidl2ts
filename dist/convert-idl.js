@@ -1,4 +1,15 @@
 "use strict";
+var __assign = (this && this.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -32,7 +43,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.convertIDL = void 0;
+exports.getMemberTrivia = exports.cleanUpComment = exports.convertIDL = void 0;
 var ts = __importStar(require("typescript"));
 var bufferSourceTypes = [
     'ArrayBuffer',
@@ -68,8 +79,9 @@ function convertIDL(rootTypes, options) {
         switch (rootType.type) {
             case 'interface':
             case 'interface mixin':
-            case 'dictionary':
-                nodes.push(convertInterface(rootType, options));
+            case 'dictionary': {
+                var trivia = getMemberTrivia(rootType);
+                nodes.push(ts.addSyntheticLeadingComment(convertInterface(rootType, options), ts.SyntaxKind.MultiLineCommentTrivia, trivia, true));
                 for (var _b = 0, _c = rootType.extAttrs; _b < _c.length; _b++) {
                     var attr = _c[_b];
                     if (attr.name === 'Exposed' && ((_a = attr.rhs) === null || _a === void 0 ? void 0 : _a.value) === 'Window') {
@@ -79,6 +91,7 @@ function convertIDL(rootTypes, options) {
                     }
                 }
                 break;
+            }
             case 'includes':
                 nodes.push(convertInterfaceIncludes(rootType));
                 break;
@@ -147,13 +160,18 @@ function convertInterface(idl, options) {
         inheritance.push(ts.factory.createExpressionWithTypeArguments(ts.factory.createIdentifier(idl.inheritance), undefined));
     }
     idl.members.forEach(function (member) {
+        debugger;
+        var trivia = getMemberTrivia(member);
+        var t = function (node) {
+            return trivia == '' ? node : ts.addSyntheticLeadingComment(node, ts.SyntaxKind.MultiLineCommentTrivia, trivia, true);
+        };
         switch (member.type) {
             case 'attribute':
                 if (options === null || options === void 0 ? void 0 : options.emscripten) {
                     classMembers.push(createAttributeGetter(member), createAttributeSetter(member), convertMemberAttribute(member, true));
                 }
                 else {
-                    typeMembers.push(convertMemberAttribute(member, false));
+                    typeMembers.push(t(convertMemberAttribute(member, false)));
                 }
                 break;
             case 'operation':
@@ -161,7 +179,7 @@ function convertInterface(idl, options) {
                     classMembers.push(member.name === idl.name ? convertMemberConstructor(member, true) : convertMemberOperation(member, true));
                 }
                 else {
-                    typeMembers.push(member.name === idl.name ? convertMemberConstructor(member, false) : convertMemberOperation(member, false));
+                    typeMembers.push(t(member.name === idl.name ? convertMemberConstructor(member, false) : convertMemberOperation(member, false)));
                 }
                 break;
             case 'constructor':
@@ -169,7 +187,7 @@ function convertInterface(idl, options) {
                     classMembers.push(convertMemberConstructor(member, true));
                 }
                 else {
-                    typeMembers.push(convertMemberConstructor(member, false));
+                    typeMembers.push(t(convertMemberConstructor(member, false)));
                 }
                 break;
             case 'field':
@@ -177,7 +195,7 @@ function convertInterface(idl, options) {
                     classMembers.push(convertMemberField(member, true));
                 }
                 else {
-                    typeMembers.push(convertMemberField(member, false));
+                    typeMembers.push(t(convertMemberField(member, false)));
                 }
                 break;
             case 'const':
@@ -185,7 +203,7 @@ function convertInterface(idl, options) {
                     classMembers.push(convertMemberConst(member, true));
                 }
                 else {
-                    typeMembers.push(convertMemberConst(member, false));
+                    typeMembers.push(t(convertMemberConst(member, false)));
                 }
                 break;
             case 'iterable': {
@@ -305,3 +323,47 @@ function convertCallback(idl) {
 function newUnsupportedError(message, idl) {
     return new Error("\n  ".concat(message, "\n  ").concat(JSON.stringify(idl, null, 2), "\n\n  Please file an issue at https://github.com/giniedp/webidl2ts and provide the used idl file or example.\n"));
 }
+function cleanUpComment(comment) {
+    comment = comment
+        .split('\n')
+        .filter(function (line) { return !line.includes('//#'); }) // Ignore preprocessor lines
+        .join('\n')
+        .trim();
+    if (comment.startsWith('/**') || comment.startsWith('/*')) {
+        comment = comment.replace('/**', '').replace('/*', '').replace(/\*\//g, '');
+        comment = comment.replace(/\n\s*\*/gm, '\n');
+    }
+    if (comment.startsWith('//')) {
+        comment = comment.replace(/\n\s*\/\//gm, '\n').replace('//', '');
+    }
+    return comment
+        .split('\n')
+        .map(function (line) { return line.trim(); })
+        .join('\n')
+        .trim();
+}
+exports.cleanUpComment = cleanUpComment;
+function getMemberTrivia(member) {
+    var _a;
+    var tokens = member.extAttrs.tokens;
+    tokens !== null && tokens !== void 0 ? tokens : (tokens = member.tokens);
+    var returnTokens = (_a = member.idlType) === null || _a === void 0 ? void 0 : _a.tokens;
+    if (returnTokens) {
+        tokens = __assign(__assign({}, tokens), returnTokens);
+    }
+    var trivia = '';
+    for (var token in tokens) {
+        var value = tokens[token];
+        if (!value || !value.trivia)
+            continue;
+        // If it doesn't just contain white space
+        if (!!value.trivia.replace(/\s/g, '').length) {
+            trivia += cleanUpComment(value.trivia);
+            trivia += '\n\n';
+        }
+    }
+    if (!trivia.trim().length)
+        return '';
+    return '*\n * ' + trivia.trim().split('\n').join('\n * ') + '\n ';
+}
+exports.getMemberTrivia = getMemberTrivia;

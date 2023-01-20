@@ -1,3 +1,4 @@
+import { nsISupportsString } from './nsISupports'
 import { Options } from './types'
 
 export function defaultPreprocessor(idl: string, options: Options) {
@@ -11,6 +12,11 @@ export function defaultPreprocessor(idl: string, options: Options) {
     idl = fixes.bodylessInterface(idl)
     idl = fixes.uuidExtendAttributes(idl)
     idl = fixes.inFunctionArg(idl)
+
+    // Add some type aliases to the start to make things make a touch more sense
+    // See: https://firefox-source-docs.mozilla.org/xpcom/xpidl.html#types
+    idl += 'typedef string AString;\n'
+    idl += nsISupportsString
   }
 
   return idl
@@ -97,7 +103,7 @@ export const fixes = {
    *
    * @todo Define a type pointing at any for bodyless interfaces
    */
-  bodylessInterface: (idlString: string): string => idlString.replace(/interface \w*;/g, ''),
+  bodylessInterface: (idlString: string): string => idlString.replace(/interface (\w*);/g, 'typedef any $1;'),
 
   /**
    * Strips out the UUID function from extended attributes.

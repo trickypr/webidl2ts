@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env -S node
 
 import * as yargs from 'yargs'
 import { parseIDL } from './parse-idl'
@@ -7,8 +7,7 @@ import { printTs, printEmscriptenModule } from './print-ts'
 import * as fs from 'fs'
 import { fetchIDL } from './fetch-idl'
 import { Options } from './types'
-import { defaultPreprocessor, fixes } from './fixes'
-import { argv0 } from 'process'
+import { defaultPreprocessor } from './fixes'
 
 async function main() {
   const argv = yargs

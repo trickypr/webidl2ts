@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.fixes = exports.defaultPreprocessor = void 0;
+var nsISupports_1 = require("./nsISupports");
 function defaultPreprocessor(idl, options) {
     if (options.emscripten) {
         idl = exports.fixes.inheritance(idl);
@@ -11,6 +12,10 @@ function defaultPreprocessor(idl, options) {
         idl = exports.fixes.bodylessInterface(idl);
         idl = exports.fixes.uuidExtendAttributes(idl);
         idl = exports.fixes.inFunctionArg(idl);
+        // Add some type aliases to the start to make things make a touch more sense
+        // See: https://firefox-source-docs.mozilla.org/xpcom/xpidl.html#types
+        idl += 'typedef string AString;\n';
+        idl += nsISupports_1.nsISupportsString;
     }
     return idl;
 }
@@ -94,7 +99,7 @@ exports.fixes = {
      *
      * @todo Define a type pointing at any for bodyless interfaces
      */
-    bodylessInterface: function (idlString) { return idlString.replace(/interface \w*;/g, ''); },
+    bodylessInterface: function (idlString) { return idlString.replace(/interface (\w*);/g, 'typedef any $1;'); },
     /**
      * Strips out the UUID function from extended attributes.
      * ```idl

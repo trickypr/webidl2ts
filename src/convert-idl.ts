@@ -2,6 +2,7 @@ import { MethodDeclaration } from 'typescript'
 import * as webidl2 from 'webidl2'
 import * as ts from 'typescript'
 import { Options } from './types'
+import { IDLNamespaceMemberType } from 'webidl2'
 
 const bufferSourceTypes = [
   'ArrayBuffer',
@@ -41,8 +42,10 @@ export function convertIDL(rootTypes: webidl2.IDLRootType[], options?: Options):
     switch (rootType.type) {
       case 'interface':
       case 'interface mixin':
-      case 'dictionary':
-        nodes.push(convertInterface(rootType, options))
+      case 'dictionary': {
+        const trivia = getMemberTrivia(rootType as any)
+
+        nodes.push(ts.addSyntheticLeadingComment(convertInterface(rootType, options), ts.SyntaxKind.MultiLineCommentTrivia, trivia, true))
         for (const attr of rootType.extAttrs) {
           if (attr.name === 'Exposed' && attr.rhs?.value === 'Window') {
             nodes.push(
@@ -64,6 +67,7 @@ export function convertIDL(rootTypes: webidl2.IDLRootType[], options?: Options):
           }
         }
         break
+      }
       case 'includes':
         nodes.push(convertInterfaceIncludes(rootType))
         break
@@ -219,40 +223,45 @@ function convertInterface(idl: webidl2.InterfaceType | webidl2.DictionaryType | 
   }
 
   idl.members.forEach((member: webidl2.IDLInterfaceMemberType | webidl2.FieldType) => {
+    debugger
+    const trivia = getMemberTrivia(member)
+    const t = <T extends ts.Node>(node: T): T =>
+      trivia == '' ? node : ts.addSyntheticLeadingComment(node, ts.SyntaxKind.MultiLineCommentTrivia, trivia, true)
+
     switch (member.type) {
       case 'attribute':
         if (options?.emscripten) {
           classMembers.push(createAttributeGetter(member), createAttributeSetter(member), convertMemberAttribute(member, true))
         } else {
-          typeMembers.push(convertMemberAttribute(member, false))
+          typeMembers.push(t(convertMemberAttribute(member, false)))
         }
         break
       case 'operation':
         if (options?.emscripten) {
           classMembers.push(member.name === idl.name ? convertMemberConstructor(member, true) : convertMemberOperation(member, true))
         } else {
-          typeMembers.push(member.name === idl.name ? convertMemberConstructor(member, false) : convertMemberOperation(member, false))
+          typeMembers.push(t(member.name === idl.name ? convertMemberConstructor(member, false) : convertMemberOperation(member, false)))
         }
         break
       case 'constructor':
         if (options?.emscripten) {
           classMembers.push(convertMemberConstructor(member, true))
         } else {
-          typeMembers.push(convertMemberConstructor(member, false))
+          typeMembers.push(t(convertMemberConstructor(member, false)))
         }
         break
       case 'field':
         if (options?.emscripten) {
           classMembers.push(convertMemberField(member, true))
         } else {
-          typeMembers.push(convertMemberField(member, false))
+          typeMembers.push(t(convertMemberField(member, false)))
         }
         break
       case 'const':
         if (options?.emscripten) {
           classMembers.push(convertMemberConst(member, true))
         } else {
-          typeMembers.push(convertMemberConst(member, false))
+          typeMembers.push(t(convertMemberConst(member, false)))
         }
         break
       case 'iterable': {
@@ -446,4 +455,58 @@ function newUnsupportedError(message: string, idl: unknown) {
 
   Please file an issue at https://github.com/giniedp/webidl2ts and provide the used idl file or example.
 `)
+}
+
+export function cleanUpComment(comment: string): string {
+  comment = comment
+    .split('\n')
+    .filter((line) => !line.includes('//#')) // Ignore preprocessor lines
+    .join('\n')
+    .trim()
+
+  if (comment.startsWith('/**') || comment.startsWith('/*')) {
+    comment = comment.replace('/**', '').replace('/*', '').replace(/\*\//g, '')
+    comment = comment.replace(/\n\s*\*/gm, '\n')
+  }
+
+  if (comment.startsWith('//')) {
+    comment = comment.replace(/\n\s*\/\//gm, '\n').replace('//', '')
+  }
+
+  return comment
+    .split('\n')
+    .map((line) => line.trim())
+    .join('\n')
+    .trim()
+}
+
+export function getMemberTrivia(member: webidl2.IDLInterfaceMemberType | webidl2.FieldType): string {
+  let { tokens } = member.extAttrs as any
+  tokens ??= (member as any).tokens
+  const returnTokens = (member as any).idlType?.tokens
+
+  if (returnTokens) {
+    tokens = {
+      ...tokens,
+      ...returnTokens,
+    }
+  }
+
+  let trivia = ''
+
+  for (const token in tokens) {
+    const value = tokens[token] as webidl2.Token
+
+    if (!value || !value.trivia) continue
+
+    // If it doesn't just contain white space
+    if (!!value.trivia.replace(/\s/g, '').length) {
+      trivia += cleanUpComment(value.trivia)
+      trivia += '\n\n'
+    }
+  }
+
+  if (!trivia.trim().length) return ''
+
+  return '*\n * ' + trivia.trim().split('\n').join('\n * ') + '\n '
 }
