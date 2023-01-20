@@ -7,7 +7,8 @@ import { printTs, printEmscriptenModule } from './print-ts'
 import * as fs from 'fs'
 import { fetchIDL } from './fetch-idl'
 import { Options } from './types'
-import { fixes } from './fixes'
+import { defaultPreprocessor, fixes } from './fixes'
+import { argv0 } from 'process'
 
 async function main() {
   const argv = yargs
@@ -39,6 +40,12 @@ async function main() {
       default: false,
       boolean: true,
     })
+    .option('g', {
+      describe: 'Enable Gecko mode',
+      alias: 'gecko',
+      default: false,
+      boolean: true,
+    })
     .option('n', {
       describe: 'Name of the module (emscripten mode)',
       alias: 'name',
@@ -55,6 +62,7 @@ async function main() {
     input: argv.i as string,
     output: argv.o as string,
     emscripten: argv.e,
+    gecko: argv.g,
     defaultExport: argv.d,
     module: argv.n,
   }
@@ -69,13 +77,7 @@ async function main() {
 async function convert(options: Options) {
   const idlString = await fetchIDL(options.input)
   const idl = await parseIDL(idlString, {
-    preprocess: (idl: string) => {
-      if (options.emscripten) {
-        idl = fixes.inheritance(idl)
-        idl = fixes.array(idl)
-      }
-      return idl
-    },
+    preprocess: (idl) => defaultPreprocessor(idl, options),
   })
   const ts = convertIDL(idl, options)
 

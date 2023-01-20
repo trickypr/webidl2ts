@@ -1,6 +1,20 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.fixes = void 0;
+exports.fixes = exports.defaultPreprocessor = void 0;
+function defaultPreprocessor(idl, options) {
+    if (options.emscripten) {
+        idl = exports.fixes.inheritance(idl);
+        idl = exports.fixes.array(idl);
+    }
+    if (options.gecko) {
+        idl = exports.fixes.preprocessorStatements(idl);
+        idl = exports.fixes.bodylessInterface(idl);
+        idl = exports.fixes.uuidExtendAttributes(idl);
+        idl = exports.fixes.inFunctionArg(idl);
+    }
+    return idl;
+}
+exports.defaultPreprocessor = defaultPreprocessor;
 exports.fixes = {
     inheritance: function (idlString) {
         // need fix for error:
@@ -49,4 +63,65 @@ exports.fixes = {
             .replace(/float\[\]/gi, 'FrozenArray<float>')
             .replace(/long\[\]/gi, 'FrozenArray<long>');
     },
+    /**
+     * Strips out preprocessor statements (lines starting with #). For example:
+     *
+     * ```idl
+     * #include "nsISupports.idl"
+     * ```
+     *
+     * To fix:
+     * ```
+     * Syntax error at line 6:␊
+     * #include "nsISupports.idl"␊
+     * ^ Unrecognised tokens
+     * ```
+     */
+    preprocessorStatements: function (idlString) { return idlString.replace(/#.*\n/g, ''); },
+    /**
+     *	Strips out interfaces without a body. e.g.
+     *
+     *	```idl
+     *	interface nsIFile;
+     *	```
+     *
+     * To fix:
+     * ```
+     * Syntax error at line 7, since \`interface nsIFile\`:␊
+     * interface nsIFile;␊
+     *                  ^ Bodyless interface
+     * ```
+     *
+     * @todo Define a type pointing at any for bodyless interfaces
+     */
+    bodylessInterface: function (idlString) { return idlString.replace(/interface \w*;/g, ''); },
+    /**
+     * Strips out the UUID function from extended attributes.
+     * ```idl
+     * [scriptable, uuid(bc3173bd-aa46-46a0-9d25-d9867a9659b6)]
+     * interface nsICommandLine : nsISupports
+     * ```
+     *
+     * To fix:
+     * ```
+     * Syntax error at line 21:␊
+     * [scriptable, uuid(bc3173bd-aa46-46a0-9d25-d9867a9659b6)]␊
+     *                   ^ Unexpected token in extended attribute argument list
+     * ```
+     */
+    uuidExtendAttributes: function (idlString) { return idlString.replace(/(,\s*)uuid\((\w|-)*\)/g, ''); },
+    /**
+     * Remove `in` flags on function args.
+     * ```idl
+     * boolean handleFlag(in AString aFlag, in boolean aCaseSensitive);
+     * ```
+     *
+     * Fixes:
+     * ```
+     * Syntax error at line 44, since \`interface nsICommandLine\`:␊
+     *    AString getArgument(in long aIndex);␊
+     *                        ^ Unterminated operation
+     * ```
+     */
+    inFunctionArg: function (idlString) { return idlString.replace(/(\(|(,\s*))in (\w* \w*)/g, '$1$3'); },
 };

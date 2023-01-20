@@ -6,9 +6,9 @@
   "scripts": {
     "build": "tsc && chmod 755 dist/cli.js",
     "lint": "tsc --noEmit",
-    "start": "yarn build && ./dist/cli.js",
-    "format": "yarn prettier --write .",
-    "test": "node --test --require ts-node/register ./test/*.spec.ts"
+    "start": "pnpm build && ./dist/cli.js",
+    "format": "prettier --write .",
+    "test": "ava ./test/*.spec.ts"
   },
   "repository": {
     "type": "git",
@@ -29,6 +29,7 @@
     "@types/yargs": "^15.0.9",
     "@typescript-eslint/eslint-plugin": "^4.6.1",
     "@typescript-eslint/parser": "^4.6.1",
+    "ava": "^5.1.1",
     "eslint": "^7.12.1",
     "prettier": "^2.1.2",
     "ts-node": "^10.0.0"
@@ -41,5 +42,13 @@
   },
   "bin": {
     "webidl2ts": "./dist/cli.js"
+  },
+  "ava": {
+    "extensions": [
+      "ts"
+    ],
+    "require": [
+      "ts-node/register"
+    ]
   }
 }

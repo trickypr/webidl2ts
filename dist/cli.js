@@ -98,6 +98,12 @@ function main() {
                 default: false,
                 boolean: true,
             })
+                .option('g', {
+                describe: 'Enable Gecko mode',
+                alias: 'gecko',
+                default: false,
+                boolean: true,
+            })
                 .option('n', {
                 describe: 'Name of the module (emscripten mode)',
                 alias: 'name',
@@ -113,6 +119,7 @@ function main() {
                 input: argv.i,
                 output: argv.o,
                 emscripten: argv.e,
+                gecko: argv.g,
                 defaultExport: argv.d,
                 module: argv.n,
             };
@@ -133,13 +140,7 @@ function convert(options) {
                 case 1:
                     idlString = _a.sent();
                     return [4 /*yield*/, (0, parse_idl_1.parseIDL)(idlString, {
-                            preprocess: function (idl) {
-                                if (options.emscripten) {
-                                    idl = fixes_1.fixes.inheritance(idl);
-                                    idl = fixes_1.fixes.array(idl);
-                                }
-                                return idl;
-                            },
+                            preprocess: function (idl) { return (0, fixes_1.defaultPreprocessor)(idl, options); },
                         })];
                 case 2:
                     idl = _a.sent();
