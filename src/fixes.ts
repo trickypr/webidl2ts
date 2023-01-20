@@ -119,7 +119,7 @@ export const fixes = {
    *                   ^ Unexpected token in extended attribute argument list
    * ```
    */
-  uuidExtendAttributes: (idlString: string): string => idlString.replace(/(,\s*)uuid\((\w|-)*\)/g, ''),
+  uuidExtendAttributes: (idlString: string): string => idlString.replace(/(,\s*)\w*\((\w|-)*\)/g, ''),
 
   /**
    * Remove `in` flags on function args.

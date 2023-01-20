@@ -114,7 +114,7 @@ exports.fixes = {
      *                   ^ Unexpected token in extended attribute argument list
      * ```
      */
-    uuidExtendAttributes: function (idlString) { return idlString.replace(/(,\s*)uuid\((\w|-)*\)/g, ''); },
+    uuidExtendAttributes: function (idlString) { return idlString.replace(/(,\s*)\w*\((\w|-)*\)/g, ''); },
     /**
      * Remove `in` flags on function args.
      * ```idl
