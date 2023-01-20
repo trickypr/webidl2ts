@@ -82,7 +82,7 @@ exports.fixes = {
      * ^ Unrecognised tokens
      * ```
      */
-    preprocessorStatements: function (idlString) { return idlString.replace(/#.*\n/g, ''); },
+    preprocessorStatements: function (idlString) { return idlString.replace(/#.*\n/g, '').replace(/%{C\+\+\n(.|\n)*?%}/g, ''); },
     /**
      *	Strips out interfaces without a body. e.g.
      *
