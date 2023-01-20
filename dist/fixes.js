@@ -12,9 +12,13 @@ function defaultPreprocessor(idl, options) {
         idl = exports.fixes.bodylessInterface(idl);
         idl = exports.fixes.uuidExtendAttributes(idl);
         idl = exports.fixes.inFunctionArg(idl);
+        idl = exports.fixes.stripSquareBrackets(idl);
+        idl = exports.fixes.sequenceTypes(idl);
         // Add some type aliases to the start to make things make a touch more sense
         // See: https://firefox-source-docs.mozilla.org/xpcom/xpidl.html#types
         idl += 'typedef string AString;\n';
+        idl += 'typedef string ACString;\n';
+        idl += 'typedef string AUTF8String;\n';
         idl += nsISupports_1.nsISupportsString;
     }
     return idl;
@@ -119,6 +123,9 @@ exports.fixes = {
      * Remove `in` flags on function args.
      * ```idl
      * boolean handleFlag(in AString aFlag, in boolean aCaseSensitive);
+     * boolean getBoolPref(in string aPrefName, [optional] in boolean aDefaultValue);
+     * void getComplexValue(in string aPrefName, in nsIIDRef aType,
+     *                    [iid_is(aType), retval] out nsQIResult aValue);
      * ```
      *
      * Fixes:
@@ -128,5 +135,29 @@ exports.fixes = {
      *                        ^ Unterminated operation
      * ```
      */
-    inFunctionArg: function (idlString) { return idlString.replace(/(\(|(,\s*))in (\w* \w*)/g, '$1$3'); },
+    inFunctionArg: function (idlString) {
+        return idlString.replace(/(\(|(,\s*)|(,\n\s*))(\[((\w|\(|\))*(,\s*)?)*\] ?)?(in|out) ((\w* ?)*)/g, '$1$4$9');
+    },
+    /**
+     * Removes square brackets around optionals.
+     * ```idl
+     * boolean getBoolPref(in string aPrefName, [optional] in boolean aDefaultValue);
+     * void getComplexValue(in string aPrefName, in nsIIDRef aType,
+     *                    [iid_is(aType), retval] out nsQIResult aValue);
+     * ```
+     *
+     * Fixes:
+     * ```
+     * Syntax error at line 68, since \`interface nsIPrefBranch\`:␊
+     *  (string aPrefName, [optional] boolean aDefaultValue)␊
+     *                      ^ Unexpected closing token of extended attribute
+     * ```
+     */
+    stripSquareBrackets: function (idlString) {
+        return idlString
+            .replace(/\[(optional)\]/g, '$1')
+            .replace(/\[(\w|\(|\)|,|\s)*\] (\w* \w*)/g, '$2')
+            .replace(/\[(\w|\(|\))*\]/g, '');
+    },
+    sequenceTypes: function (idl) { return idl.replace(/Array<(\w*)>/g, 'sequence<$1>'); },
 };

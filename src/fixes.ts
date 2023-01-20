@@ -12,10 +12,14 @@ export function defaultPreprocessor(idl: string, options: Options) {
     idl = fixes.bodylessInterface(idl)
     idl = fixes.uuidExtendAttributes(idl)
     idl = fixes.inFunctionArg(idl)
+    idl = fixes.stripSquareBrackets(idl)
+    idl = fixes.sequenceTypes(idl)
 
     // Add some type aliases to the start to make things make a touch more sense
     // See: https://firefox-source-docs.mozilla.org/xpcom/xpidl.html#types
     idl += 'typedef string AString;\n'
+    idl += 'typedef string ACString;\n'
+    idl += 'typedef string AUTF8String;\n'
     idl += nsISupportsString
   }
 
@@ -125,6 +129,9 @@ export const fixes = {
    * Remove `in` flags on function args.
    * ```idl
    * boolean handleFlag(in AString aFlag, in boolean aCaseSensitive);
+   * boolean getBoolPref(in string aPrefName, [optional] in boolean aDefaultValue);
+   * void getComplexValue(in string aPrefName, in nsIIDRef aType,
+   *                    [iid_is(aType), retval] out nsQIResult aValue);
    * ```
    *
    * Fixes:
@@ -134,5 +141,29 @@ export const fixes = {
    *                        ^ Unterminated operation
    * ```
    */
-  inFunctionArg: (idlString: string): string => idlString.replace(/(\(|(,\s*))in (\w* \w*)/g, '$1$3'),
+  inFunctionArg: (idlString: string): string =>
+    idlString.replace(/(\(|(,\s*)|(,\n\s*))(\[((\w|\(|\))*(,\s*)?)*\] ?)?(in|out) ((\w* ?)*)/g, '$1$4$9'),
+
+  /**
+   * Removes square brackets around optionals.
+   * ```idl
+   * boolean getBoolPref(in string aPrefName, [optional] in boolean aDefaultValue);
+   * void getComplexValue(in string aPrefName, in nsIIDRef aType,
+   *                    [iid_is(aType), retval] out nsQIResult aValue);
+   * ```
+   *
+   * Fixes:
+   * ```
+   * Syntax error at line 68, since \`interface nsIPrefBranch\`:␊
+   *  (string aPrefName, [optional] boolean aDefaultValue)␊
+   *                      ^ Unexpected closing token of extended attribute
+   * ```
+   */
+  stripSquareBrackets: (idlString: string) =>
+    idlString
+      .replace(/\[(optional)\]/g, '$1')
+      .replace(/\[(\w|\(|\)|,|\s)*\] (\w* \w*)/g, '$2')
+      .replace(/\[(\w|\(|\))*\]/g, ''),
+
+  sequenceTypes: (idl: string) => idl.replace(/Array<(\w*)>/g, 'sequence<$1>'),
 }

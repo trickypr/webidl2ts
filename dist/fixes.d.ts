@@ -54,6 +54,9 @@ export declare const fixes: {
      * Remove `in` flags on function args.
      * ```idl
      * boolean handleFlag(in AString aFlag, in boolean aCaseSensitive);
+     * boolean getBoolPref(in string aPrefName, [optional] in boolean aDefaultValue);
+     * void getComplexValue(in string aPrefName, in nsIIDRef aType,
+     *                    [iid_is(aType), retval] out nsQIResult aValue);
      * ```
      *
      * Fixes:
@@ -64,4 +67,21 @@ export declare const fixes: {
      * ```
      */
     inFunctionArg: (idlString: string) => string;
+    /**
+     * Removes square brackets around optionals.
+     * ```idl
+     * boolean getBoolPref(in string aPrefName, [optional] in boolean aDefaultValue);
+     * void getComplexValue(in string aPrefName, in nsIIDRef aType,
+     *                    [iid_is(aType), retval] out nsQIResult aValue);
+     * ```
+     *
+     * Fixes:
+     * ```
+     * Syntax error at line 68, since \`interface nsIPrefBranch\`:␊
+     *  (string aPrefName, [optional] boolean aDefaultValue)␊
+     *                      ^ Unexpected closing token of extended attribute
+     * ```
+     */
+    stripSquareBrackets: (idlString: string) => string;
+    sequenceTypes: (idl: string) => string;
 };

@@ -4,7 +4,7 @@ import * as path from 'path'
 import test from 'ava'
 
 import { convertIDL, parseIDL, printEmscriptenModule, printTs, Options, fetchIDL } from '../src'
-import { defaultPreprocessor, fixes } from '../src/fixes'
+import { defaultPreprocessor } from '../src/fixes'
 
 const testCases: { title: string; options: Options }[] = [
   {
@@ -30,13 +30,24 @@ const testCases: { title: string; options: Options }[] = [
     },
   },
   {
-    title: 'should work for gecko idl',
+    title: 'should work for gecko idl - nsICommandLine',
     options: {
       emscripten: false,
       defaultExport: false,
       gecko: true,
       module: 'Module',
       input: path.join(__dirname, 'nsICommandLine.idl'),
+      output: path.join(__dirname, 'nsICommandLine.d.ts'),
+    },
+  },
+  {
+    title: 'should work for gecko idl - nsIPrefBranch',
+    options: {
+      emscripten: false,
+      defaultExport: false,
+      gecko: true,
+      module: 'Module',
+      input: path.join(__dirname, 'nsIPrefBranch.idl'),
       output: path.join(__dirname, 'nsICommandLine.d.ts'),
     },
   },
